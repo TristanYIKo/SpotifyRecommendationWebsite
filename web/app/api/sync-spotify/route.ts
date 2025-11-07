@@ -18,56 +18,18 @@ export async function POST(request: Request) {
 
     const userId = session.user.id
 
-    // Fetch Spotify tokens from database
-    const { data: tokenData, error: tokenError } = await supabase
-      .from('spotify_tokens')
-      .select('access_token, refresh_token, expires_at')
-      .eq('user_id', userId)
-      .single()
+    // Get provider token from session
+    // Supabase stores provider tokens in the session's provider_token
+    const providerToken = session.provider_token
+    const providerRefreshToken = session.provider_refresh_token
 
-    if (tokenError || !tokenData) {
+    if (!providerToken) {
       return NextResponse.json({ 
         error: 'Spotify tokens not found. Please re-authenticate.' 
       }, { status: 400 })
     }
 
-    // Check if token is expired and refresh if needed
-    const expiresAt = new Date(tokenData.expires_at)
-    const now = new Date()
-    let accessToken = tokenData.access_token
-
-    if (now >= expiresAt) {
-      // Token is expired, refresh it
-      const refreshResponse = await fetch('https://accounts.spotify.com/api/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': `Basic ${Buffer.from(`${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`).toString('base64')}`
-        },
-        body: new URLSearchParams({
-          grant_type: 'refresh_token',
-          refresh_token: tokenData.refresh_token
-        })
-      })
-
-      if (!refreshResponse.ok) {
-        return NextResponse.json({ 
-          error: 'Failed to refresh Spotify token' 
-        }, { status: 400 })
-      }
-
-      const refreshData = await refreshResponse.json()
-      accessToken = refreshData.access_token
-
-      // Update token in database
-      await supabase
-        .from('spotify_tokens')
-        .update({
-          access_token: refreshData.access_token,
-          expires_at: new Date(Date.now() + refreshData.expires_in * 1000).toISOString()
-        })
-        .eq('user_id', userId)
-    }
+    let accessToken = providerToken
 
     // Fetch top tracks from Spotify
     const topTracksResponse = await fetch(
