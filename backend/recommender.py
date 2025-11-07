@@ -1,124 +1,325 @@
 """
-Music recommendation engine using collaborative filtering and audio features
+Music recommendation engine using Spotify's recommendation API
 """
 import numpy as np
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
+import requests
+import random
 
 
 def generate_recommendations(
     user_tracks: List[Dict[str, Any]], 
+    spotify_token: str,
     top_n: int = 10
 ) -> List[Dict[str, Any]]:
     """
-    Generate track recommendations based on user's listening history
+    Generate NEW track recommendations using Spotify's recommendation API
     
     This function:
-    1. Extracts audio features from user's tracks (if available)
-    2. If no features available, returns top tracks as recommendations
-    3. Computes a user profile vector (average of all features)
-    4. Calculates similarity scores between user profile and all tracks
-    5. Returns top N tracks with highest similarity scores
+    1. Analyzes user's saved tracks to understand their taste
+    2. Selects seed tracks from user's most played songs
+    3. Calls Spotify's recommendations API to get NEW similar songs
+    4. Filters out songs the user already has
+    5. Returns fresh recommendations they haven't heard
     
     Args:
-        user_tracks: List of track dictionaries with audio features
+        user_tracks: List of track dictionaries from user's library
+        spotify_token: Valid Spotify access token
         top_n: Number of recommendations to return
         
     Returns:
-        List of recommendation dictionaries with spotify_track_id and score
+        List of NEW track recommendations with metadata
     """
     if not user_tracks or len(user_tracks) == 0:
         return []
     
-    # Define feature columns used for similarity calculation
-    feature_columns = ['danceability', 'energy', 'valence', 'tempo', 'acousticness']
+    # Get user's existing track IDs to filter them out
+    existing_track_ids = {track['spotify_track_id'] for track in user_tracks}
     
-    # Extract features from tracks
-    track_features = []
-    valid_tracks = []
+    print(f"User has {len(user_tracks)} tracks in library")
     
-    for track in user_tracks:
-        # Extract features, skip if any are missing
-        features = []
-        valid = True
+    # First, try to get fresh track IDs directly from Spotify
+    # This ensures we're using valid, current track IDs
+    try:
+        fresh_tracks = get_user_top_tracks_from_spotify(spotify_token, limit=50)
+        if fresh_tracks:
+            print(f"Got {len(fresh_tracks)} fresh tracks from Spotify API")
+            # Use the first 5 as seeds
+            seed_track_ids = [t['id'] for t in fresh_tracks[:5]]
+            print(f"Using seed tracks: {[t['name'] + ' by ' + t['artists'][0]['name'] for t in fresh_tracks[:5]]}")
+        else:
+            # Fallback: use stored track IDs
+            seed_track_ids = [t['spotify_track_id'] for t in user_tracks[:5]]
+            print(f"Using stored track IDs as seeds")
+    except Exception as e:
+        print(f"Error fetching fresh tracks: {e}, using stored IDs")
+        seed_track_ids = [t['spotify_track_id'] for t in user_tracks[:5]]
+    
+    # Calculate average audio features to use as target parameters
+    feature_columns = ['danceability', 'energy', 'valence', 'acousticness', 'instrumentalness']
+    avg_features = {}
+    
+    for feature in feature_columns:
+        values = [t.get(feature) for t in user_tracks if t.get(feature) is not None]
+        if values:
+            avg_features[f'target_{feature}'] = sum(values) / len(values)
+    
+    # Get tempo average (if available)
+    tempo_values = [t.get('tempo') for t in user_tracks if t.get('tempo') is not None]
+    if tempo_values:
+        avg_features['target_tempo'] = sum(tempo_values) / len(tempo_values)
+    
+    # Call Spotify's recommendations API
+    try:
+        recommendations = get_spotify_recommendations(
+            seed_track_ids=seed_track_ids,
+            target_features=avg_features,
+            spotify_token=spotify_token,
+            limit=50  # Get more than needed so we can filter
+        )
         
-        for col in feature_columns:
-            value = track.get(col)
-            if value is None:
-                valid = False
-                break
-            features.append(float(value))
+        # Filter out songs user already has
+        new_recommendations = []
+        for rec in recommendations:
+            if rec['spotify_track_id'] not in existing_track_ids:
+                new_recommendations.append(rec)
+                if len(new_recommendations) >= top_n:
+                    break
         
-        if valid:
-            track_features.append(features)
-            valid_tracks.append(track)
+        print(f"Returning {len(new_recommendations)} new recommendations")
+        return new_recommendations
+        
+    except Exception as e:
+        print(f"Error getting Spotify recommendations with track seeds: {e}")
+        
+        # Fallback: Try using genre seeds instead
+        print("Attempting fallback with genre seeds...")
+        try:
+            # Use popular genres as seeds
+            genre_seeds = ['pop', 'rock', 'hip-hop', 'electronic', 'indie']
+            recommendations = get_spotify_recommendations_by_genre(
+                seed_genres=genre_seeds,
+                target_features=avg_features,
+                spotify_token=spotify_token,
+                limit=50
+            )
+            
+            # Filter out songs user already has
+            new_recommendations = []
+            for rec in recommendations:
+                if rec['spotify_track_id'] not in existing_track_ids:
+                    new_recommendations.append(rec)
+                    if len(new_recommendations) >= top_n:
+                        break
+            
+            print(f"Genre-based fallback returned {len(new_recommendations)} recommendations")
+            return new_recommendations
+            
+        except Exception as e2:
+            print(f"Genre fallback also failed: {e2}")
+            return []
+
+
+def get_user_top_tracks_from_spotify(spotify_token: str, limit: int = 50) -> List[Dict[str, Any]]:
+    """
+    Fetch user's current top tracks directly from Spotify
     
-    # If no tracks have audio features, return top tracks with dummy scores
-    if len(track_features) == 0:
-        print("No audio features available, returning top tracks as recommendations")
-        recommendations = []
-        for i, track in enumerate(user_tracks[:top_n]):
-            recommendations.append({
-                'spotify_track_id': track['spotify_track_id'],
-                'name': track.get('name', ''),
-                'artist': track.get('artist', ''),
-                'score': 1.0 - (i * 0.05)  # Decreasing score from 1.0 to 0.5
-            })
-        return recommendations
+    Args:
+        spotify_token: Valid Spotify access token
+        limit: Number of tracks to fetch
+        
+    Returns:
+        List of track objects from Spotify
+    """
+    url = "https://api.spotify.com/v1/me/top/tracks"
+    params = {
+        'limit': min(limit, 50),
+        'time_range': 'medium_term'  # last ~6 months
+    }
+    headers = {
+        'Authorization': f'Bearer {spotify_token}'
+    }
     
-    # Convert to numpy array
-    features_array = np.array(track_features)
+    response = requests.get(url, headers=headers, params=params)
     
-    # Normalize tempo (which has different scale than other features)
-    # Create a copy for normalization
-    normalized_features = features_array.copy()
-    tempo_idx = feature_columns.index('tempo')
-    if features_array.shape[0] > 1:
-        scaler = StandardScaler()
-        normalized_features[:, tempo_idx] = scaler.fit_transform(
-            features_array[:, tempo_idx].reshape(-1, 1)
-        ).flatten()
+    if response.status_code != 200:
+        print(f"Error fetching top tracks: {response.status_code}")
+        return []
     
-    # Calculate user profile vector (mean of all track features)
-    user_profile = np.mean(normalized_features, axis=0)
+    data = response.json()
+    return data.get('items', [])
+
+
+def get_spotify_recommendations(
+    seed_track_ids: List[str],
+    target_features: Dict[str, float],
+    spotify_token: str,
+    limit: int = 50
+) -> List[Dict[str, Any]]:
+    """
+    Call Spotify's recommendations API to get similar tracks
     
-    # Calculate cosine similarity between user profile and each track
-    similarities = cosine_similarity(
-        user_profile.reshape(1, -1), 
-        normalized_features
-    )[0]
+    Args:
+        seed_track_ids: List of track IDs to use as seeds (max 5)
+        target_features: Dictionary of target audio features
+        spotify_token: Valid Spotify access token
+        limit: Number of recommendations to fetch
+        
+    Returns:
+        List of recommended tracks with metadata
+    """
+    url = "https://api.spotify.com/v1/recommendations"
     
-    # Create recommendations with scores
+    # Build query parameters
+    params = {
+        'seed_tracks': ','.join(seed_track_ids[:5]),  # Max 5 seeds
+        'limit': min(limit, 100)  # Spotify max is 100
+    }
+    
+    # Add target features
+    params.update(target_features)
+    
+    headers = {
+        'Authorization': f'Bearer {spotify_token}'
+    }
+    
+    response = requests.get(url, headers=headers, params=params)
+    
+    if response.status_code != 200:
+        error_detail = response.text
+        try:
+            error_json = response.json()
+            error_detail = error_json.get('error', {}).get('message', response.text)
+        except:
+            pass
+        print(f"Spotify API error: {response.status_code} - {error_detail}")
+        print(f"Request URL: {url}")
+        print(f"Request params: {params}")
+        raise Exception(f"Failed to fetch recommendations: {response.status_code} - {error_detail}")
+    
+    data = response.json()
+    tracks = data.get('tracks', [])
+    
+    # Format recommendations
     recommendations = []
-    for idx, track in enumerate(valid_tracks):
+    for i, track in enumerate(tracks):
         recommendations.append({
-            'spotify_track_id': track['spotify_track_id'],
-            'name': track.get('name', ''),
-            'artist': track.get('artist', ''),
-            'score': float(similarities[idx])
+            'spotify_track_id': track['id'],
+            'name': track['name'],
+            'artist': ', '.join([artist['name'] for artist in track['artists']]),
+            'album': track['album']['name'],
+            'preview_url': track.get('preview_url'),
+            'external_url': track['external_urls'].get('spotify'),
+            'score': 1.0 - (i * 0.01)  # Decreasing score based on Spotify's ranking
         })
     
-    # Sort by similarity score (descending)
-    recommendations.sort(key=lambda x: x['score'], reverse=True)
+    return recommendations
+
+
+def get_spotify_recommendations_by_genre(
+    seed_genres: List[str],
+    target_features: Dict[str, float],
+    spotify_token: str,
+    limit: int = 50
+) -> List[Dict[str, Any]]:
+    """
+    Call Spotify's recommendations API using genre seeds instead of track seeds
     
-    # Return top N recommendations
-    return recommendations[:top_n]
+    Args:
+        seed_genres: List of genre names to use as seeds (max 5)
+        target_features: Dictionary of target audio features
+        spotify_token: Valid Spotify access token
+        limit: Number of recommendations to fetch
+        
+    Returns:
+        List of recommended tracks with metadata
+    """
+    url = "https://api.spotify.com/v1/recommendations"
+    
+    # Build query parameters
+    params = {
+        'seed_genres': ','.join(seed_genres[:5]),  # Max 5 seeds
+        'limit': min(limit, 100)  # Spotify max is 100
+    }
+    
+    # Add target features
+    params.update(target_features)
+    
+    headers = {
+        'Authorization': f'Bearer {spotify_token}'
+    }
+    
+    response = requests.get(url, headers=headers, params=params)
+    
+    if response.status_code != 200:
+        error_detail = response.text
+        try:
+            error_json = response.json()
+            error_detail = error_json.get('error', {}).get('message', response.text)
+        except:
+            pass
+        print(f"Spotify API error (genre): {response.status_code} - {error_detail}")
+        raise Exception(f"Failed to fetch genre recommendations: {response.status_code}")
+    
+    data = response.json()
+    tracks = data.get('tracks', [])
+    
+    # Format recommendations
+    recommendations = []
+    for i, track in enumerate(tracks):
+        recommendations.append({
+            'spotify_track_id': track['id'],
+            'name': track['name'],
+            'artist': ', '.join([artist['name'] for artist in track['artists']]),
+            'album': track['album']['name'],
+            'preview_url': track.get('preview_url'),
+            'external_url': track['external_urls'].get('spotify'),
+            'score': 1.0 - (i * 0.01)  # Decreasing score based on Spotify's ranking
+        })
+    
+    return recommendations
 
 
-def calculate_diversity_score(recommendations: List[Dict[str, Any]]) -> float:
+def analyze_user_taste_profile(user_tracks: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Analyze user's music taste based on their listening history
+    
+    Args:
+        user_tracks: List of user's track dictionaries
+        
+    Returns:
+        Dictionary with average audio features and other metrics
+    """
+    feature_columns = ['danceability', 'energy', 'valence', 'acousticness', 'tempo']
+    
+    profile = {}
+    for feature in feature_columns:
+        values = [t.get(feature) for t in user_tracks if t.get(feature) is not None]
+        if values:
+            profile[feature] = {
+                'avg': sum(values) / len(values),
+                'min': min(values),
+                'max': max(values)
+            }
+    
+    return profile
+
+
+def calculate_diversity_score(recommendation_list: List[Dict[str, Any]]) -> float:
     """
     Calculate diversity score for a list of recommendations
     
     Higher score means more diverse recommendations across audio features
     
     Args:
-        recommendations: List of recommendation dictionaries
+        recommendation_list: List of recommendation dictionaries
         
     Returns:
         Diversity score between 0 and 1
     """
-    if len(recommendations) < 2:
+    if len(recommendation_list) < 2:
         return 0.0
     
     # This is a placeholder for more sophisticated diversity metrics

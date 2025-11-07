@@ -45,16 +45,18 @@ async def root():
 
 @app.get("/recommend")
 async def recommend_tracks(
-    user_id: str = Query(..., description="Supabase user ID")
+    user_id: str = Query(..., description="Supabase user ID"),
+    spotify_token: str = Query(..., description="Valid Spotify access token")
 ) -> Dict[str, Any]:
     """
-    Generate music recommendations for a user based on their listening history
+    Generate NEW music recommendations using Spotify's API
     
     Args:
         user_id: The Supabase user ID
+        spotify_token: Valid Spotify access token from the user's session
         
     Returns:
-        Dictionary containing user_id and list of recommendations with scores
+        Dictionary containing user_id and list of NEW song recommendations
     """
     try:
         # Fetch user's tracks from Supabase
@@ -66,13 +68,17 @@ async def recommend_tracks(
                 detail="No tracks found for user. Please sync your Spotify data first."
             )
         
-        # Generate recommendations using ML algorithm
-        recommendations = generate_recommendations(user_tracks, top_n=10)
+        # Generate NEW recommendations using Spotify's API
+        recommendations = generate_recommendations(
+            user_tracks=user_tracks,
+            spotify_token=spotify_token,
+            top_n=10
+        )
         
         if not recommendations:
             raise HTTPException(
                 status_code=500,
-                detail="Failed to generate recommendations"
+                detail="Failed to generate recommendations. Please try again."
             )
         
         # Optionally save recommendations to database

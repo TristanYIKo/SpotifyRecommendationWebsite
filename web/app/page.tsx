@@ -6,10 +6,13 @@ import { User } from '@supabase/supabase-js'
 import RecommendationList from '@/components/RecommendationList'
 
 interface Recommendation {
-  spotify_track_id: string
-  score: number
-  name?: string
-  artist?: string
+  id: string
+  name: string
+  artists: string[]
+  album: string
+  preview_url: string | null
+  external_url: string
+  image: string | null
 }
 
 export default function Home() {
@@ -93,23 +96,22 @@ export default function Home() {
     if (!user) return
 
     setRecommendationLoading(true)
-    setMessage('Generating recommendations...')
+    setMessage('Generating NEW recommendations based on your taste...')
 
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
-      const response = await fetch(`${backendUrl}/recommend?user_id=${user.id}`)
+      const response = await fetch('/api/recommendations')
 
       const data = await response.json()
 
       if (response.ok) {
         setRecommendations(data.recommendations || [])
-        setMessage(`Generated ${data.recommendations?.length || 0} recommendations!`)
+        setMessage(`✨ Found ${data.recommendations?.length || 0} new songs you might love!`)
       } else {
-        setMessage(`Error: ${data.detail || 'Failed to get recommendations'}`)
+        setMessage(`Error: ${data.error || 'Failed to get recommendations'}`)
       }
     } catch (error) {
       console.error('Recommendation error:', error)
-      setMessage('Failed to connect to recommendation service. Is the backend running?')
+      setMessage('Failed to get recommendations. Please try again.')
     } finally {
       setRecommendationLoading(false)
     }
