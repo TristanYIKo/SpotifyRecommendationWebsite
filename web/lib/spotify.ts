@@ -10,6 +10,21 @@ export interface SpotifyTrack {
   preview_url: string | null
   external_url: string
   image: string | null
+  spotify_url?: string // Alias for external_url
+}
+
+export interface SpotifyArtist {
+  id: string
+  name: string
+  image: string | null
+}
+
+export interface SpotifyPlaylist {
+  id: string
+  name: string
+  owner: string
+  total_tracks: number
+  image: string | null
 }
 
 export interface SpotifyTokens {
@@ -432,6 +447,311 @@ export function formatTrack(track: any): SpotifyTrack {
     album: track.album.name,
     preview_url: track.preview_url,
     external_url: track.external_urls.spotify,
+    spotify_url: track.external_urls.spotify,
     image: track.album.images[0]?.url || null,
   }
+}
+
+/**
+ * SYNC FUNCTIONS - Fetch user's Spotify data
+ */
+
+/**
+ * Get user's top tracks from Spotify (long term)
+ */
+export async function fetchUserTopTracks(
+  accessToken: string,
+  limit: number = 100
+): Promise<any[]> {
+  // Spotify API limits to 50 items per request
+  const maxPerRequest = 50
+  const allTracks: any[] = []
+  
+  // If requesting more than 50, we need to make multiple requests
+  if (limit > maxPerRequest) {
+    // First batch: 50 tracks
+    const url1 = `https://api.spotify.com/v1/me/top/tracks?limit=${maxPerRequest}&time_range=long_term`
+    const response1 = await fetch(url1, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    })
+    
+    if (!response1.ok) {
+      const errorText = await response1.text()
+      console.error('Failed to fetch top tracks (batch 1):', response1.status, errorText)
+      throw new Error(`Failed to fetch top tracks: ${response1.status}`)
+    }
+    
+    const data1 = await response1.json()
+    allTracks.push(...(data1.items || []))
+    
+    // Second batch: remaining tracks (up to 50 more)
+    const remaining = Math.min(limit - maxPerRequest, maxPerRequest)
+    if (remaining > 0) {
+      const url2 = `https://api.spotify.com/v1/me/top/tracks?limit=${remaining}&time_range=long_term&offset=${maxPerRequest}`
+      const response2 = await fetch(url2, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      })
+      
+      if (response2.ok) {
+        const data2 = await response2.json()
+        allTracks.push(...(data2.items || []))
+      }
+    }
+    
+    console.log(`✓ Fetched ${allTracks.length} top tracks from Spotify`)
+    return allTracks
+  } else {
+    // Single request for 50 or fewer tracks
+    const url = `https://api.spotify.com/v1/me/top/tracks?limit=${limit}&time_range=long_term`
+    
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Failed to fetch top tracks:', response.status, errorText)
+      throw new Error(`Failed to fetch top tracks: ${response.status}`)
+    }
+
+    const data = await response.json()
+    const tracks = data.items || []
+    console.log(`✓ Fetched ${tracks.length} top tracks from Spotify`)
+    return tracks
+  }
+}
+
+/**
+ * Get user's top artists from Spotify (long term)
+ */
+export async function fetchUserTopArtists(
+  accessToken: string,
+  limit: number = 50
+): Promise<SpotifyArtist[]> {
+  const url = `https://api.spotify.com/v1/me/top/artists?limit=${limit}&time_range=long_term`
+  
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch top artists: ${response.status}`)
+  }
+
+  const data = await response.json()
+  const artists = data.items || []
+
+  return artists.map((artist: any) => ({
+    id: artist.id,
+    name: artist.name,
+    image: artist.images[0]?.url || null,
+  }))
+}
+
+/**
+ * Get user's playlists from Spotify
+ */
+export async function fetchUserPlaylists(
+  accessToken: string,
+  limit: number = 50
+): Promise<SpotifyPlaylist[]> {
+  const url = `https://api.spotify.com/v1/me/playlists?limit=${limit}`
+  
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch playlists: ${response.status}`)
+  }
+
+  const data = await response.json()
+  const playlists = data.items || []
+
+  return playlists.map((playlist: any) => ({
+    id: playlist.id,
+    name: playlist.name,
+    owner: playlist.owner.display_name || playlist.owner.id,
+    total_tracks: playlist.tracks.total,
+    image: playlist.images[0]?.url || null,
+  }))
+}
+
+/**
+ * RECOMMENDATION FUNCTIONS - Get recommendations based on different modes
+ */
+
+/**
+ * Get recommendations based on user's top tracks and artists (General mode)
+ */
+export async function getGeneralRecommendations(
+  accessToken: string,
+  topTrackIds: string[],
+  topArtistIds: string[],
+  limit: number = 20
+): Promise<SpotifyTrack[]> {
+  // Pick up to 5 track seeds and 2 artist seeds
+  const seedTracks = topTrackIds.slice(0, 5)
+  const seedArtists = topArtistIds.slice(0, 2)
+
+  const params = new URLSearchParams({
+    limit: limit.toString(),
+    market: 'US',
+  })
+
+  if (seedTracks.length > 0) {
+    params.set('seed_tracks', seedTracks.join(','))
+  }
+  if (seedArtists.length > 0) {
+    params.set('seed_artists', seedArtists.join(','))
+  }
+
+  const url = `https://api.spotify.com/v1/recommendations?${params.toString()}`
+  
+  console.log('Calling Spotify recommendations API:', url)
+  
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Spotify recommendations API error:', response.status, errorText)
+    throw new Error(`Failed to get general recommendations: ${response.status}`)
+  }
+
+  const data = await response.json()
+  console.log(`✓ Received ${data.tracks?.length || 0} recommendations from Spotify`)
+  
+  return (data.tracks || []).map(formatTrack)
+}
+
+/**
+ * Get playlist tracks
+ */
+export async function getPlaylistTracks(
+  accessToken: string,
+  playlistId: string,
+  limit: number = 100
+): Promise<string[]> {
+  const url = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=${limit}`
+  
+  console.log('Fetching playlist tracks from:', url)
+  
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Fetch playlist tracks error:', response.status, errorText)
+    throw new Error(`Failed to fetch playlist tracks: ${response.status}`)
+  }
+
+  const data = await response.json()
+  const items = data.items || []
+  
+  const trackIds = items
+    .filter((item: any) => item.track && item.track.id)
+    .map((item: any) => item.track.id)
+  
+  console.log(`✓ Found ${trackIds.length} tracks in playlist`)
+  
+  return trackIds
+}
+
+/**
+ * Get recommendations based on playlist tracks (Playlist mode)
+ */
+export async function getPlaylistRecommendations(
+  accessToken: string,
+  playlistId: string,
+  limit: number = 20
+): Promise<SpotifyTrack[]> {
+  console.log('Getting playlist recommendations for playlist:', playlistId)
+  
+  // Fetch tracks from the playlist
+  const trackIds = await getPlaylistTracks(accessToken, playlistId, 50)
+  
+  if (trackIds.length === 0) {
+    throw new Error('No tracks found in playlist')
+  }
+
+  // Randomly select up to 5 track IDs
+  const shuffled = trackIds.sort(() => 0.5 - Math.random())
+  const seedTracks = shuffled.slice(0, 5)
+
+  console.log('Using seed tracks:', seedTracks)
+
+  const url = `https://api.spotify.com/v1/recommendations?seed_tracks=${seedTracks.join(',')}&limit=${limit}&market=US`
+  
+  console.log('Calling Spotify recommendations API:', url)
+  
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Spotify playlist recommendations error:', response.status, errorText)
+    throw new Error(`Failed to get playlist recommendations: ${response.status}`)
+  }
+
+  const data = await response.json()
+  console.log(`✓ Received ${data.tracks?.length || 0} recommendations from Spotify`)
+  
+  return (data.tracks || []).map(formatTrack)
+}
+
+/**
+ * Search for an artist by name
+ */
+export async function searchArtist(
+  accessToken: string,
+  artistName: string
+): Promise<string | null> {
+  const url = `https://api.spotify.com/v1/search?type=artist&q=${encodeURIComponent(artistName)}&limit=1`
+  
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to search for artist: ${response.status}`)
+  }
+
+  const data = await response.json()
+  const artists = data.artists?.items || []
+  
+  return artists.length > 0 ? artists[0].id : null
+}
+
+/**
+ * Get recommendations based on an artist (Artist mode)
+ */
+export async function getArtistRecommendations(
+  accessToken: string,
+  artistId: string,
+  limit: number = 20
+): Promise<SpotifyTrack[]> {
+  console.log('Getting artist recommendations for artist:', artistId)
+  
+  const url = `https://api.spotify.com/v1/recommendations?seed_artists=${artistId}&limit=${limit}&market=US`
+  
+  console.log('Calling Spotify recommendations API:', url)
+  
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Spotify artist recommendations error:', response.status, errorText)
+    throw new Error(`Failed to get artist recommendations: ${response.status}`)
+  }
+
+  const data = await response.json()
+  console.log(`✓ Received ${data.tracks?.length || 0} recommendations from Spotify`)
+  
+  return (data.tracks || []).map(formatTrack)
 }
