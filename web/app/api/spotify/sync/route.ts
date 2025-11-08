@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     console.log('Fetching top tracks...')
     let topTracksRaw
     try {
-      topTracksRaw = await fetchUserTopTracks(accessToken, 100)
+      topTracksRaw = await fetchUserTopTracks(accessToken, 300)
       console.log(`✓ Fetched ${topTracksRaw.length} top tracks`)
     } catch (error: any) {
       console.error('Error fetching top tracks:', error.message)
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     console.log('Fetching top artists...')
     let topArtists
     try {
-      topArtists = await fetchUserTopArtists(accessToken, 50)
+      topArtists = await fetchUserTopArtists(accessToken, 75)
       console.log(`✓ Fetched ${topArtists.length} top artists`)
     } catch (error: any) {
       console.error('Error fetching top artists:', error.message)

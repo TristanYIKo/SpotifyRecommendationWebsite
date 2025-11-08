@@ -527,58 +527,46 @@ export async function fetchUserTopTracks(
   const maxPerRequest = 50
   const allTracks: any[] = []
   
-  // If requesting more than 50, we need to make multiple requests
-  if (limit > maxPerRequest) {
-    // First batch: 50 tracks
-    const url1 = `https://api.spotify.com/v1/me/top/tracks?limit=${maxPerRequest}&time_range=long_term`
-    const response1 = await fetch(url1, {
-      headers: { 'Authorization': `Bearer ${accessToken}` }
-    })
+  // Calculate how many requests we need
+  const numRequests = Math.ceil(limit / maxPerRequest)
+  
+  for (let i = 0; i < numRequests; i++) {
+    const offset = i * maxPerRequest
+    const batchLimit = Math.min(maxPerRequest, limit - offset)
     
-    if (!response1.ok) {
-      const errorText = await response1.text()
-      console.error('Failed to fetch top tracks (batch 1):', response1.status, errorText)
-      throw new Error(`Failed to fetch top tracks: ${response1.status}`)
-    }
+    const url = `https://api.spotify.com/v1/me/top/tracks?limit=${batchLimit}&time_range=long_term&offset=${offset}`
     
-    const data1 = await response1.json()
-    allTracks.push(...(data1.items || []))
-    
-    // Second batch: remaining tracks (up to 50 more)
-    const remaining = Math.min(limit - maxPerRequest, maxPerRequest)
-    if (remaining > 0) {
-      const url2 = `https://api.spotify.com/v1/me/top/tracks?limit=${remaining}&time_range=long_term&offset=${maxPerRequest}`
-      const response2 = await fetch(url2, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      })
-      
-      if (response2.ok) {
-        const data2 = await response2.json()
-        allTracks.push(...(data2.items || []))
-      }
-    }
-    
-    console.log(`✓ Fetched ${allTracks.length} top tracks from Spotify`)
-    return allTracks
-  } else {
-    // Single request for 50 or fewer tracks
-    const url = `https://api.spotify.com/v1/me/top/tracks?limit=${limit}&time_range=long_term`
+    console.log(`  Fetching batch ${i + 1}/${numRequests} (offset: ${offset}, limit: ${batchLimit})`)
     
     const response = await fetch(url, {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     })
-
+    
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Failed to fetch top tracks:', response.status, errorText)
-      throw new Error(`Failed to fetch top tracks: ${response.status}`)
+      console.error(`Failed to fetch top tracks (batch ${i + 1}):`, response.status, errorText)
+      // If first batch fails, throw error. Otherwise, return what we have
+      if (i === 0) {
+        throw new Error(`Failed to fetch top tracks: ${response.status}`)
+      } else {
+        console.log(`Stopping after ${allTracks.length} tracks due to error`)
+        break
+      }
     }
-
+    
     const data = await response.json()
     const tracks = data.items || []
-    console.log(`✓ Fetched ${tracks.length} top tracks from Spotify`)
-    return tracks
+    allTracks.push(...tracks)
+    
+    // If we got fewer tracks than requested, we've reached the end
+    if (tracks.length < batchLimit) {
+      console.log(`Reached end of available tracks at ${allTracks.length}`)
+      break
+    }
   }
+  
+  console.log(`✓ Fetched ${allTracks.length} top tracks from Spotify`)
+  return allTracks
 }
 
 /**
@@ -588,20 +576,51 @@ export async function fetchUserTopArtists(
   accessToken: string,
   limit: number = 50
 ): Promise<SpotifyArtist[]> {
-  const url = `https://api.spotify.com/v1/me/top/artists?limit=${limit}&time_range=long_term`
+  // Spotify API limits to 50 items per request
+  const maxPerRequest = 50
+  const allArtists: any[] = []
   
-  const response = await fetch(url, {
-    headers: { 'Authorization': `Bearer ${accessToken}` }
-  })
+  // Calculate how many requests we need
+  const numRequests = Math.ceil(limit / maxPerRequest)
+  
+  for (let i = 0; i < numRequests; i++) {
+    const offset = i * maxPerRequest
+    const batchLimit = Math.min(maxPerRequest, limit - offset)
+    
+    const url = `https://api.spotify.com/v1/me/top/artists?limit=${batchLimit}&time_range=long_term&offset=${offset}`
+    
+    console.log(`  Fetching artists batch ${i + 1}/${numRequests} (offset: ${offset}, limit: ${batchLimit})`)
+    
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    })
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch top artists: ${response.status}`)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error(`Failed to fetch top artists (batch ${i + 1}):`, response.status, errorText)
+      // If first batch fails, throw error. Otherwise, return what we have
+      if (i === 0) {
+        throw new Error(`Failed to fetch top artists: ${response.status}`)
+      } else {
+        console.log(`Stopping after ${allArtists.length} artists due to error`)
+        break
+      }
+    }
+
+    const data = await response.json()
+    const artists = data.items || []
+    allArtists.push(...artists)
+    
+    // If we got fewer artists than requested, we've reached the end
+    if (artists.length < batchLimit) {
+      console.log(`Reached end of available artists at ${allArtists.length}`)
+      break
+    }
   }
 
-  const data = await response.json()
-  const artists = data.items || []
+  console.log(`✓ Fetched ${allArtists.length} top artists from Spotify`)
 
-  return artists.map((artist: any) => ({
+  return allArtists.map((artist: any) => ({
     id: artist.id,
     name: artist.name,
     image: artist.images[0]?.url || null,
@@ -668,9 +687,9 @@ export async function getGeneralRecommendations(
   const shuffledTracks = [...validTrackIds].sort(() => 0.5 - Math.random())
   const shuffledArtists = [...validArtistIds].sort(() => 0.5 - Math.random())
   
-  // Use 3 tracks and 2 artists for good variety
-  const seedTracks = shuffledTracks.slice(0, 3)
-  const seedArtists = shuffledArtists.slice(0, 2)
+  // Use 1 track and 4 artists for MORE artist variety
+  const seedTracks = shuffledTracks.slice(0, 1)
+  const seedArtists = shuffledArtists.slice(0, 4)
 
   const params = new URLSearchParams({
     limit: limit.toString(),
@@ -823,29 +842,85 @@ export async function getPlaylistRecommendations(
 ): Promise<SpotifyTrack[]> {
   console.log('Getting playlist recommendations for playlist:', playlistId)
   
-  // Fetch tracks from the playlist
+  // Fetch tracks from the playlist (get more for better artist extraction)
   const trackIds = await getPlaylistTracks(accessToken, playlistId, 50)
   
   if (trackIds.length === 0) {
     throw new Error('No valid Spotify tracks found in playlist (may contain only local files)')
   }
 
-  // Randomly select up to 5 track IDs for variety
-  const shuffled = trackIds.sort(() => 0.5 - Math.random())
-  const seedTracks = shuffled.slice(0, 5)
-
-  // Validate seed tracks (should be 22-character alphanumeric IDs)
-  const validSeeds = seedTracks.filter(id => id && id.length === 22 && /^[a-zA-Z0-9]+$/.test(id))
+  // Fetch full track objects to extract artist IDs
+  const tracksToFetch = trackIds.slice(0, 20).join(',')
+  const tracksUrl = `https://api.spotify.com/v1/tracks?ids=${tracksToFetch}`
   
-  if (validSeeds.length === 0) {
-    throw new Error('No valid track IDs found for recommendations')
+  const tracksResponse = await fetch(tracksUrl, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  })
+  
+  let artistIds: string[] = []
+  let validTrackSeeds: string[] = []
+  
+  if (tracksResponse.ok) {
+    const tracksData = await tracksResponse.json()
+    const tracks = tracksData.tracks || []
+    
+    // Extract unique artist IDs from tracks
+    const artistIdSet = new Set<string>()
+    tracks.forEach((track: any) => {
+      if (track?.artists && Array.isArray(track.artists)) {
+        track.artists.forEach((artist: any) => {
+          if (artist.id) {
+            artistIdSet.add(artist.id)
+          }
+        })
+      }
+    })
+    
+    artistIds = Array.from(artistIdSet)
+    console.log(`   Extracted ${artistIds.length} unique artists from ${tracks.length} tracks`)
+    
+    // Randomly shuffle artists for variety
+    artistIds.sort(() => 0.5 - Math.random())
+    
+    // Also keep some track IDs as seeds
+    validTrackSeeds = trackIds
+      .filter(id => id && id.length === 22 && /^[a-zA-Z0-9]+$/.test(id))
+      .sort(() => 0.5 - Math.random())
+  } else {
+    // Fallback: just use track IDs
+    validTrackSeeds = trackIds
+      .filter(id => id && id.length === 22 && /^[a-zA-Z0-9]+$/.test(id))
+      .sort(() => 0.5 - Math.random())
+  }
+  
+  // Build seeds: prioritize artists for variety (1 track + 4 artists)
+  const seedTracks = validTrackSeeds.slice(0, 1)
+  const seedArtists = artistIds.slice(0, 4)
+  
+  // Fallback: if not enough artists, use more tracks
+  const totalSeeds = seedTracks.length + seedArtists.length
+  if (totalSeeds < 5 && validTrackSeeds.length > seedTracks.length) {
+    const additionalTracks = validTrackSeeds.slice(1, 5 - seedArtists.length)
+    seedTracks.push(...additionalTracks)
+  }
+  
+  if (seedTracks.length === 0 && seedArtists.length === 0) {
+    throw new Error('No valid track or artist IDs found for recommendations')
   }
 
   console.log('🎵 Calling Spotify Recommendations API (Playlist mode)')
-  console.log('   Valid seed tracks:', validSeeds.length, '/', seedTracks.length)
-  console.log('   Track IDs:', validSeeds)
+  console.log('   Seed tracks:', seedTracks.length, seedTracks)
+  console.log('   Seed artists:', seedArtists.length, seedArtists)
 
-  const url = `https://api.spotify.com/v1/recommendations?seed_tracks=${validSeeds.join(',')}&limit=${limit}`
+  const params = new URLSearchParams({ limit: limit.toString() })
+  if (seedTracks.length > 0) {
+    params.set('seed_tracks', seedTracks.join(','))
+  }
+  if (seedArtists.length > 0) {
+    params.set('seed_artists', seedArtists.join(','))
+  }
+  
+  const url = `https://api.spotify.com/v1/recommendations?${params.toString()}`
   
   console.log('   Full URL:', url)
   
@@ -863,7 +938,8 @@ export async function getPlaylistRecommendations(
     console.error('   Status Text:', response.statusText)
     console.error('   Error body:', errorText)
     console.error('   Full URL:', url)
-    console.error('   Seed tracks used:', validSeeds)
+    console.error('   Seed tracks used:', seedTracks)
+    console.error('   Seed artists used:', seedArtists)
     
     // Try to parse error as JSON for more details
     try {

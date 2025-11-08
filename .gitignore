@@ -12,6 +12,10 @@ __pycache__/
 .next/
 dist/
 build/
+out/
+
+# Vercel
+.vercel
 
 # IDE
 .vscode/
@@ -38,3 +42,6 @@ yarn-error.log*
 # Testing
 coverage/
 .pytest_cache/
+
+# TypeScript
+*.tsbuildinfo

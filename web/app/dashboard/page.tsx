@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { AlertCircle, Music2, TrendingUp } from 'lucide-react'
 
 interface MonthData {
@@ -192,8 +192,8 @@ export default function DashboardPage() {
 
   async function loadTopArtists() {
     try {
-      // Fetch top artists from Spotify
-      const response = await fetch('/api/spotify/top-artists?limit=5&time_range=medium_term')
+      // Fetch top 50 artists from Spotify to extract genres
+      const response = await fetch('/api/spotify/top-artists?limit=50&time_range=medium_term')
       
       if (!response.ok) {
         console.error('Failed to fetch top artists:', response.status)
@@ -201,13 +201,14 @@ export default function DashboardPage() {
       }
 
       const data = await response.json()
-      const artists = data.items || []
+      const allArtists = data.items || []
 
-      setTopArtists(artists)
+      // Display top 10 artists
+      setTopArtists(allArtists.slice(0, 10))
 
-      // Calculate top genres from these artists
-      if (artists.length > 0) {
-        calculateTopGenres(artists)
+      // Calculate top 7 genres from all 50 artists
+      if (allArtists.length > 0) {
+        calculateTopGenres(allArtists)
       }
 
     } catch (error) {
@@ -233,7 +234,7 @@ export default function DashboardPage() {
         percentage: parseFloat(((count / totalGenres) * 100).toFixed(1))
       }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5)
+      .slice(0, 7)
 
     setTopGenres(genreData)
   }
@@ -337,28 +338,28 @@ export default function DashboardPage() {
 
         {/* Top Artists and Top Genres - Two Columns */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Top 5 Artists */}
+          {/* Top 10 Artists */}
           <Card>
             <CardHeader>
-              <CardTitle>Top Artists</CardTitle>
+              <CardTitle>Top 10 Artists</CardTitle>
               <CardDescription>Your most listened to artists</CardDescription>
             </CardHeader>
             <CardContent>
               {topArtists.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-3 max-h-[600px] overflow-y-auto">
                   {topArtists.map((artist, index) => (
                     <div key={artist.id} className="flex items-center gap-3">
-                      <span className="text-lg font-semibold text-muted-foreground w-6">
+                      <span className="text-lg font-semibold text-muted-foreground w-7">
                         {index + 1}
                       </span>
-                      <Avatar className="h-12 w-12">
+                      <Avatar className="h-10 w-10">
                         <AvatarImage src={artist.images[0]?.url} alt={artist.name} />
                         <AvatarFallback>{artist.name.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{artist.name}</p>
+                        <p className="font-medium truncate text-sm">{artist.name}</p>
                         {artist.popularity !== undefined && (
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             Popularity: {artist.popularity}/100
                           </p>
                         )}
@@ -376,34 +377,43 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Top 5 Genres */}
+          {/* Top 7 Genres - Vertical Bar Chart */}
           <Card>
             <CardHeader>
-              <CardTitle>Top Genres</CardTitle>
-              <CardDescription>Your favorite music genres</CardDescription>
+              <CardTitle>Top 7 Genres</CardTitle>
+              <CardDescription>Based on your top 50 artists</CardDescription>
             </CardHeader>
             <CardContent>
               {topGenres.length > 0 ? (
-                <div className="space-y-4">
-                  {topGenres.map((genre, index) => (
-                    <div key={genre.name} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg font-semibold text-muted-foreground w-6">
-                          {index + 1}
-                        </span>
-                        <div>
-                          <p className="font-medium capitalize">{genre.name}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">{genre.percentage}%</p>
-                        <p className="text-xs text-muted-foreground">
-                          {genre.count} artist{genre.count !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <ResponsiveContainer width="100%" height={600}>
+                  <BarChart data={topGenres} margin={{ top: 20, right: 20, bottom: 100, left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="name" 
+                      angle={-45}
+                      textAnchor="end"
+                      height={100}
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(value) => {
+                        const capitalized = value.charAt(0).toUpperCase() + value.slice(1)
+                        return capitalized.length > 20 ? capitalized.slice(0, 20) + '...' : capitalized
+                      }}
+                    />
+                    <YAxis label={{ value: 'Percentage (%)', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip 
+                      formatter={(value: any, name: string) => {
+                        if (name === 'percentage') return [`${value}%`, 'Percentage']
+                        return [value, name]
+                      }}
+                      labelFormatter={(label) => label.charAt(0).toUpperCase() + label.slice(1)}
+                    />
+                    <Bar 
+                      dataKey="percentage" 
+                      fill="hsl(173 80% 40%)" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
               ) : (
                 <div className="flex items-center justify-center h-48 text-center">
                   <p className="text-muted-foreground">
