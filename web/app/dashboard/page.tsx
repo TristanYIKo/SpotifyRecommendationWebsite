@@ -38,7 +38,7 @@ const ListeningActivityChart = dynamic(() => import('@/components/dashboard/List
   )
 })
 
-const PlaylistStatsChart = dynamic(() => import('@/components/dashboard/PlaylistStatsChart'), {
+const TopTracksList = dynamic(() => import('@/components/dashboard/TopTracksList'), {
   ssr: false,
   loading: () => (
     <Card>
@@ -46,7 +46,7 @@ const PlaylistStatsChart = dynamic(() => import('@/components/dashboard/Playlist
         <Skeleton className="h-6 w-32" />
       </CardHeader>
       <CardContent>
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-96 w-full" />
       </CardContent>
     </Card>
   )
@@ -60,7 +60,7 @@ interface Artist {
   genres?: string[]
 }
 
-interface Track {
+interface RecentTrack {
   played_at: string
   track: {
     name: string
@@ -68,12 +68,14 @@ interface Track {
   }
 }
 
-interface Playlist {
+interface TopTrack {
   id: string
   name: string
-  tracks: {
-    total: number
+  artists: { name: string }[]
+  album: {
+    images: { url: string }[]
   }
+  popularity?: number
 }
 
 export default function DashboardPage() {
@@ -82,9 +84,9 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
   
   // Data states
-  const [recentTracks, setRecentTracks] = useState<Track[]>([])
+  const [recentTracks, setRecentTracks] = useState<RecentTrack[]>([])
   const [topArtists, setTopArtists] = useState<Artist[]>([])
-  const [playlists, setPlaylists] = useState<Playlist[]>([])
+  const [topTracks, setTopTracks] = useState<TopTrack[]>([])
 
   useEffect(() => {
     loadDashboardData()
@@ -107,7 +109,7 @@ export default function DashboardPage() {
       await Promise.all([
         loadRecentTracks(),
         loadTopArtists(),
-        loadPlaylists()
+        loadTopTracks()
       ])
 
       setLoading(false)
@@ -154,20 +156,20 @@ export default function DashboardPage() {
     }
   }
 
-  async function loadPlaylists() {
+  async function loadTopTracks() {
     try {
-      const response = await fetch('/api/spotify/playlists?limit=50')
+      const response = await fetch('/api/spotify/top-tracks?limit=50&time_range=medium_term')
       
       if (!response.ok) {
-        console.error('Failed to fetch playlists:', response.status)
+        console.error('Failed to fetch top tracks:', response.status)
         return
       }
 
       const data = await response.json()
-      console.log('Playlists data:', data)
-      setPlaylists(data.playlists || [])
+      console.log('Top tracks data:', data)
+      setTopTracks(data.items || [])
     } catch (error) {
-      console.error('Error loading playlists:', error)
+      console.error('Error loading top tracks:', error)
     }
   }
 
@@ -227,10 +229,10 @@ export default function DashboardPage() {
         {/* Row 1: Listening Activity - Full Width */}
         <ListeningActivityChart tracks={recentTracks} />
 
-        {/* Row 2: Genres (half) | Playlist Stats (half) */}
+        {/* Row 2: Genres (half) | Top Tracks (half) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <GenrePieChart artists={topArtists} />
-          <PlaylistStatsChart playlists={playlists} />
+          <TopTracksList tracks={topTracks} />
         </div>
 
         {/* Top Artists List */}
