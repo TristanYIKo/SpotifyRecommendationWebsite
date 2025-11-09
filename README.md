@@ -1,4 +1,4 @@
-# Resonate - Spotify Music Dashboard & Recommendation System# Music Recommender - Full Stack Web App
+# Resonate: Music Recommender - Full Stack Web App
 
 
 
@@ -6,7 +6,7 @@ A modern full-stack web application that connects to your Spotify account to pro
 
 
 
-## 🎵 Features## 🎵 Features
+## 🎵 Features
 
 
 
@@ -21,38 +21,11 @@ A modern full-stack web application that connects to your Spotify account to pro
 - **Top Tracks** - Your most played songs with album artwork and popularity scores- **Scalable Architecture** - Separate frontend and backend services
 
 
-
-### Smart Recommendations## 🏗️ Tech Stack
-
-- **General Recommendations** - AI-powered suggestions based on your overall listening profile
-
-- **Playlist-Based** - Get recommendations tailored to a specific playlist's vibe### Frontend
-
-- **Artist-Based** - Discover similar artists and expand your music taste- **Next.js 14** (TypeScript, App Router)
-
-- **Audio Feature Analysis** - Recommendations using Spotify's audio features (danceability, energy, valence, tempo)- **Tailwind CSS** for styling
-
-- **Supabase Auth** for authentication
-
-### Additional Features- **Supabase JS Client** for database access
-
-- **Spotify OAuth** - Secure login with your Spotify account
-
-- **Data Sync** - Fetch and store your top 300 tracks and 75 artists### Backend
-
-- **Real-time Updates** - Dashboard updates immediately after syncing- **FastAPI** (Python) for ML/recommendation service
-
-- **Responsive Design** - Beautiful UI that works on desktop and mobile- **scikit-learn** for similarity calculations
-
-- **Dark Theme** - Modern dark interface optimized for music lovers- **NumPy** for numerical operations
-
-
-
-## 🛠️ Tech Stack### Database & Auth
+## 🛠️ Tech Stack
 
 - **Supabase** (PostgreSQL)
 
-### Frontend- **Spotify OAuth** integration
+### Frontend
 
 - **Next.js 14** 
 
@@ -64,37 +37,13 @@ A modern full-stack web application that connects to your Spotify account to pro
 
 - **Lucide React** 
 
-├── web/                          # Next.js frontend
+### Backend/API
 
-### Backend/API│   ├── app/
+- **Next.js API Routes** 
 
-- **Next.js API Routes** - Serverless API endpoints│   │   ├── layout.tsx
+- **FastAPI** 
 
-- **FastAPI** (Python) - ML recommendation service│   │   ├── page.tsx
 
-- **scikit-learn** - Machine learning for similarity calculations│   │   ├── globals.css
-
-│   │   └── api/
-
-### Database & Authentication│   │       ├── sync-spotify/route.ts
-
-- **Supabase** - PostgreSQL database with built-in authentication│   │       └── me/route.ts
-
-- **Spotify OAuth 2.0** - Secure authentication via Spotify│   ├── lib/
-
-- **Row Level Security** - Data protection at the database level│   │   ├── supabaseClient.ts
-
-│   │   └── serverSupabase.ts
-
-### Deployment│   ├── components/
-
-- **Vercel** - Frontend hosting with automatic deployments│   │   ├── Navbar.tsx
-
-- **Supabase Cloud** - Managed PostgreSQL database│   │   └── RecommendationList.tsx
-
-- **Railway/Render** - Backend Python service hosting (optional)│   └── package.json
-
-│
 
 ## 📊 How It Works├── backend/                      # Python FastAPI service
 
