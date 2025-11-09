@@ -15,61 +15,73 @@ interface PlaylistStatsChartProps {
   playlists: Playlist[]
 }
 
-interface PlaylistData {
-  name: string
-  tracks: number
+interface CategoryData {
+  category: string
+  count: number
 }
 
 export default function PlaylistStatsChart({ playlists }: PlaylistStatsChartProps) {
-  // Filter out invalid playlists and sort by track count, take top 5
+  // Filter out invalid playlists
   const validPlaylists = playlists.filter(p => p && p.tracks && typeof p.tracks.total === 'number')
   
-  const topPlaylists: PlaylistData[] = [...validPlaylists]
-    .sort((a, b) => b.tracks.total - a.tracks.total)
-    .slice(0, 5)
-    .map(p => ({
-      name: p.name.length > 20 ? p.name.slice(0, 20) + '...' : p.name,
-      tracks: p.tracks.total
-    }))
+  // Categorize playlists by song count
+  const categories = [
+    { label: '0-10 songs', min: 0, max: 10 },
+    { label: '11-50 songs', min: 11, max: 50 },
+    { label: '51-100 songs', min: 51, max: 100 },
+    { label: '101-500 songs', min: 101, max: 500 },
+    { label: '500+ songs', min: 501, max: Infinity }
+  ]
 
+  const categoryData: CategoryData[] = categories.map(cat => {
+    const count = validPlaylists.filter(p => 
+      p.tracks.total >= cat.min && p.tracks.total <= cat.max
+    ).length
+    
+    return {
+      category: cat.label,
+      count
+    }
+  })
+
+  const totalPlaylists = validPlaylists.length
   const totalTracks = validPlaylists.reduce((sum, p) => sum + p.tracks.total, 0)
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Playlist Stats</CardTitle>
+        <CardTitle>Playlist Size Distribution</CardTitle>
         <CardDescription>
-          {validPlaylists.length > 0 
-            ? `${validPlaylists.length} playlists • ${totalTracks.toLocaleString()} total tracks`
-            : 'Your biggest playlists'}
+          {totalPlaylists > 0 
+            ? `${totalPlaylists} playlists • ${totalTracks.toLocaleString()} total tracks`
+            : 'Your playlists by size'}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {topPlaylists.length > 0 ? (
+        {totalPlaylists > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
             <BarChart 
-              data={topPlaylists} 
-              layout="vertical"
-              margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+              data={categoryData}
+              margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
-                type="number"
-                label={{ value: 'Number of Tracks', position: 'insideBottom', offset: -5 }}
+                dataKey="category"
+                tick={{ fontSize: 11 }}
+                angle={-15}
+                textAnchor="end"
+                height={60}
               />
               <YAxis 
-                type="category"
-                dataKey="name"
-                width={90}
-                tick={{ fontSize: 11 }}
+                label={{ value: 'Number of Playlists', angle: -90, position: 'insideLeft' }}
               />
               <Tooltip 
-                formatter={(value: number) => [`${value.toLocaleString()} tracks`, 'Tracks']}
+                formatter={(value: number) => [`${value} playlists`, 'Count']}
               />
               <Bar 
-                dataKey="tracks" 
+                dataKey="count" 
                 fill="hsl(173 80% 40%)"
-                radius={[0, 4, 4, 0]}
+                radius={[4, 4, 0, 0]}
               />
             </BarChart>
           </ResponsiveContainer>
