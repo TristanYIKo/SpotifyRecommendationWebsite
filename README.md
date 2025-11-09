@@ -41,7 +41,9 @@ A modern full-stack web application that connects to your Spotify account to pro
 
 - **Next.js API Routes** 
 
-- **FastAPI** 
+- **FastAPI**
+
+- **SpotifyAPI** 
 
 
 
