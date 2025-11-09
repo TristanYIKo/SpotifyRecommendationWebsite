@@ -225,6 +225,3 @@ For Recommendations:npm run dev
 4. **Analysis**: Dashboard components process data for visualizations
 
 5. **Recommendations**: backend analyzes audio features and generates personalized suggestions1. **Login**: Click "Login with Spotify" on the homepage
-
-2. **Sync Data**: Click "Sync My Spotify" to fetch your top tracks
-
