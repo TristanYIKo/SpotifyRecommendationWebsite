@@ -54,15 +54,15 @@ A modern full-stack web application that connects to your Spotify account to pro
 
 ### Frontend- **Spotify OAuth** integration
 
-- **Next.js 14** - React framework with App Router and TypeScript
+- **Next.js 14** 
 
-- **Tailwind CSS** - Utility-first CSS framework for styling## 📁 Project Structure
+- **Tailwind CSS** 
 
-- **shadcn/ui** - High-quality React component library
+- **shadcn/ui** 
 
-- **Recharts** - Composable charting library for data visualization```
+- **Recharts** 
 
-- **Lucide React** - Icon librarymusic-recommender/
+- **Lucide React** 
 
 ├── web/                          # Next.js frontend
 
@@ -285,167 +285,3 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 4. **Explore**: Click on any recommendation to open it in Spotify
 
 ```
-
-User Profile Creation:## 📊 How It Works
-
-  ↓
-
-Extract audio features from top 50 tracks### Recommendation Algorithm
-
-(danceability, energy, valence, acousticness, tempo)
-
-  ↓1. **Data Collection**: Fetches user's top 50 tracks from Spotify API
-
-Calculate average feature vector2. **Feature Extraction**: Retrieves audio features (danceability, energy, valence, tempo, acousticness)
-
-  ↓3. **User Profile**: Calculates average feature vector from user's tracks
-
-Compare with Spotify's track database4. **Similarity Calculation**: Uses cosine similarity to find tracks matching user preferences
-
-using cosine similarity5. **Ranking**: Returns top 10 tracks with highest similarity scores
-
-  ↓
-
-Rank tracks by similarity score### Data Flow
-
-  ↓
-
-Filter out already listened tracks```
-
-  ↓User Login (Spotify OAuth)
-
-Return top 10 recommendations    ↓
-
-```Store tokens in Supabase
-
-    ↓
-
-## 🚀 Future EnhancementsSync: Fetch tracks from Spotify API → Store in Supabase
-
-    ↓
-
-### Analytics & InsightsRecommend: Backend reads tracks → ML algorithm → Returns recommendations
-
-- [ ] **Mood Timeline** - Track your listening mood over time    ↓
-
-- [ ] **Listening Streaks** - Gamification with badges and achievementsDisplay results in UI
-
-- [ ] **Year in Review** - Spotify Wrapped-style annual summary```
-
-- [ ] **Collaboration Analysis** - See which artists you share with friends
-
-- [ ] **Discovery Score** - Measure how adventurous your music taste is## 🚢 Deployment
-
-
-
-### Recommendation Features### Frontend (Vercel)
-
-- [ ] **Playlist Generator** - Automatically create Spotify playlists from recommendations
-
-- [ ] **Genre Deep Dive** - Explore specific genres with curated recommendations```bash
-
-- [ ] **Decade Explorer** - Get recommendations from specific erascd web
-
-- [ ] **Energy Matcher** - Match recommendations to your current mood/activityvercel deploy
-
-- [ ] **Similar Artists Network** - Visual graph of artist relationships```
-
-
-
-### Social FeaturesAdd environment variables in Vercel dashboard.
-
-- [ ] **Share Dashboard** - Export and share your music stats
-
-- [ ] **Friend Recommendations** - Get suggestions based on friends' listening### Backend (Railway/Render/etc)
-
-- [ ] **Collaborative Playlists** - Build playlists together in real-time
-
-- [ ] **Music Taste Compatibility** - Compare profiles with friendsDeploy the `backend` folder to your Python hosting service. Ensure environment variables are set.
-
-
-
-### Technical Improvements## 📝 Environment Variables
-
-- [ ] **Offline Mode** - Cache data for offline viewing
-
-- [ ] **Export Data** - Download listening history as CSV/JSON### Frontend (.env.local)
-
-- [ ] **Webhook Integration** - Real-time sync with Spotify playback- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
-
-- [ ] **Mobile App** - Native iOS/Android applications- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
-
-- [ ] **Advanced Filters** - Filter recommendations by BPM, key, release year- `SPOTIFY_CLIENT_ID` - Spotify app client ID
-
-- [ ] **A/B Testing** - Multiple recommendation algorithms to choose from- `SPOTIFY_CLIENT_SECRET` - Spotify app client secret
-
-- `NEXT_PUBLIC_BACKEND_URL` - Backend API URL (e.g., http://localhost:8000)
-
-### Performance & Scale
-
-- [ ] **Background Sync** - Automatic periodic data updates### Backend (.env)
-
-- [ ] **Caching Layer** - Redis for frequently accessed data- `SUPABASE_URL` - Your Supabase project URL
-
-- [ ] **CDN Integration** - Faster image loading- `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (for admin access)
-
-- [ ] **Database Optimization** - Indexes and query optimization
-
-- [ ] **Rate Limiting** - Prevent API abuse## 🔐 Security Notes
-
-
-
----- Never commit `.env` or `.env.local` files
-
-- Use service role key only in backend (never expose to frontend)
-
-**Built with ❤️ for music lovers**- Spotify tokens are automatically refreshed when expired
-
-- Row Level Security (RLS) is enabled on all Supabase tables
-
-## 🛠️ API Endpoints
-
-### Frontend API Routes
-- `POST /api/sync-spotify` - Sync user's Spotify data
-- `GET /api/me` - Get current user profile
-
-### Backend API Routes
-- `GET /` - Health check
-- `GET /recommend?user_id={id}` - Generate recommendations
-- `GET /health` - Detailed health check
-
-## 📚 Future Enhancements
-
-- [ ] Genre-based filtering
-- [ ] Playlist creation from recommendations
-- [ ] Historical recommendation tracking
-- [ ] Advanced filtering options (mood, decade, etc.)
-- [ ] Social features (share recommendations)
-- [ ] Artist and album recommendations
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📄 License
-
-MIT License - feel free to use this project for learning or production.
-
-## 🆘 Troubleshooting
-
-**Login not working?**
-- Check Spotify OAuth redirect URI matches Supabase callback URL
-- Verify Spotify credentials in Supabase dashboard
-
-**Sync failing?**
-- Ensure Spotify tokens are stored correctly
-- Check token expiration and refresh logic
-
-**Recommendations empty?**
-- Make sure to sync Spotify data first
-- Check backend logs for errors
-- Verify Supabase connection from backend
-
-**Backend connection failed?**
-- Ensure backend is running on port 8000
-- Check NEXT_PUBLIC_BACKEND_URL in frontend .env.local
-- Verify CORS settings in backend/main.py
