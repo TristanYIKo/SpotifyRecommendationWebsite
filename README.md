@@ -41,8 +41,6 @@ A modern full-stack web application that connects to your Spotify account to pro
 
 - **Next.js API Routes** 
 
-- **FastAPI**
-
 - **SpotifyAPI** 
 
 
@@ -226,10 +224,7 @@ For Recommendations:npm run dev
 
 4. **Analysis**: Dashboard components process data for visualizations
 
-5. **Recommendations**: ML backend analyzes audio features and generates personalized suggestions1. **Login**: Click "Login with Spotify" on the homepage
+5. **Recommendations**: backend analyzes audio features and generates personalized suggestions1. **Login**: Click "Login with Spotify" on the homepage
 
 2. **Sync Data**: Click "Sync My Spotify" to fetch your top tracks
 
-### Recommendation Algorithm3. **Get Recommendations**: Click "Get Recommendations" to generate personalized suggestions
-
-4. **Explore**: Click on any recommendation to open it in Spotify
