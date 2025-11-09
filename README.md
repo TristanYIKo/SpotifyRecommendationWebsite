@@ -1,8 +1,8 @@
 # Resonate: Music Recommender - Full Stack Web App
 
+https://resonate-song-rec.vercel.app/ 
 
-
-A modern full-stack web application that connects to your Spotify account to provide personalized music insights and AI-powered song recommendations. Visualize your listening habits, discover your top artists and tracks, and get tailored music suggestions based on your unique taste.A full-stack music recommendation web application that uses Spotify data and machine learning to generate personalized track recommendations.
+A modern full-stack web application that connects to your Spotify account to provide personalized music insights and AI-powered song recommendations. Visualize your listening habits, discover your top artists and tracks, and get tailored music suggestions based on your unique taste. A full-stack music recommendation web application that uses Spotify data and machine learning to generate personalized track recommendations.
 
 
 
