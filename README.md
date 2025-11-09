@@ -47,7 +47,7 @@ A modern full-stack web application that connects to your Spotify account to pro
 
 
 
-## 📊 How It Works├── backend/                      # Python FastAPI service
+## 📊 How It Works├── backend/ 
 
 │   ├── main.py
 
@@ -213,7 +213,6 @@ For Recommendations:npm run dev
 
 ```# Run FastAPI server
 
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 ### Data Processing Pipeline```
 
