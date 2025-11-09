@@ -1,10 +1,11 @@
 'use client'
 
-import { useMemo } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 
 interface Artist {
+  id: string
+  name: string
   genres?: string[]
 }
 
@@ -12,107 +13,99 @@ interface GenrePieChartProps {
   artists: Artist[]
 }
 
+interface GenreData {
+  name: string
+  value: number
+  percentage: number
+}
+
 const COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
+  'hsl(173, 80%, 40%)',
+  'hsl(197, 37%, 24%)',
+  'hsl(43, 74%, 66%)',
+  'hsl(27, 87%, 67%)',
+  'hsl(12, 76%, 61%)',
 ]
 
-export function GenrePieChart({ artists }: GenrePieChartProps) {
-  const genreData = useMemo(() => {
-    if (!artists || artists.length === 0) return []
+export default function GenrePieChart({ artists }: GenrePieChartProps) {
+  // Calculate top genres from artists
+  const genreMap: { [key: string]: number } = {}
+  let totalCount = 0
 
-    // Collect all genres
-    const genreMap = new Map<string, number>()
-    
-    artists.forEach(artist => {
-      artist.genres?.forEach(genre => {
-        genreMap.set(genre, (genreMap.get(genre) || 0) + 1)
-      })
+  artists.forEach(artist => {
+    artist.genres?.forEach(genre => {
+      genreMap[genre] = (genreMap[genre] || 0) + 1
+      totalCount++
     })
+  })
 
-    // Convert to array and sort
-    const genreArray = Array.from(genreMap.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5) // Top 5 genres
-
-    // Calculate percentages
-    const total = genreArray.reduce((sum, g) => sum + g.count, 0)
-    
-    return genreArray.map(genre => ({
-      name: genre.name,
-      value: genre.count,
-      percentage: Math.round((genre.count / total) * 100)
+  // Get top 5 genres
+  const genreData: GenreData[] = Object.entries(genreMap)
+    .map(([name, value]) => ({
+      name,
+      value,
+      percentage: parseFloat(((value / totalCount) * 100).toFixed(1))
     }))
-  }, [artists])
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5)
 
-  if (!artists || artists.length === 0 || genreData.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Genres</CardTitle>
-          <CardDescription>Your favorite music styles</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            No genre data available
-          </div>
-        </CardContent>
-      </Card>
-    )
+  const renderLabel = (entry: any) => {
+    return `${entry.percentage}%`
   }
 
-  const renderCustomLabel = (entry: any) => {
-    return `${entry.percentage}%`
+  const capitalizeGenre = (genre: string) => {
+    return genre
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
   }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Top Genres</CardTitle>
-        <CardDescription>Your favorite music styles</CardDescription>
+        <CardDescription>Your most listened to genres</CardDescription>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
-            <Pie
-              data={genreData}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={renderCustomLabel}
-              outerRadius={80}
-              fill="#8884d8"
-              dataKey="value"
-            >
-              {genreData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip 
-              contentStyle={{ 
-                backgroundColor: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '6px'
-              }}
-              formatter={(value: any, name: any, props: any) => [
-                `${props.payload.percentage}% (${value} artists)`,
-                props.payload.name
-              ]}
-            />
-            <Legend 
-              verticalAlign="bottom" 
-              height={36}
-              formatter={(value, entry: any) => {
-                const item = genreData.find(g => g.name === value)
-                return `${value} (${item?.percentage}%)`
-              }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+        {genreData.length > 0 ? (
+          <ResponsiveContainer width="100%" height={400}>
+            <PieChart>
+              <Pie
+                data={genreData as any}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={renderLabel}
+                outerRadius={120}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {genreData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip 
+                formatter={(value: number, name: string, props: any) => {
+                  const percentage = props.payload.percentage
+                  return [`${value} (${percentage}%)`, capitalizeGenre(props.payload.name)]
+                }}
+                labelFormatter={() => ''}
+              />
+              <Legend 
+                formatter={(value: string, entry: any) => {
+                  return capitalizeGenre(entry.payload.name)
+                }}
+                iconType="circle"
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex items-center justify-center h-64 text-center">
+            <p className="text-muted-foreground">
+              No genre data available
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
