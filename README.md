@@ -213,8 +213,8 @@ For Recommendations:npm run dev
 
 ```# Run FastAPI server
 
-
-### Data Processing Pipeline```
+```
+## Data Processing Pipeline
 
 
 
@@ -233,5 +233,3 @@ For Recommendations:npm run dev
 ### Recommendation Algorithm3. **Get Recommendations**: Click "Get Recommendations" to generate personalized suggestions
 
 4. **Explore**: Click on any recommendation to open it in Spotify
-
-```
